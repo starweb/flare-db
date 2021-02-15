@@ -16,7 +16,7 @@ use Starlit\Utils\Arr;
  *
  * @author Andreas Nilsson <http://github.com/jandreasn>
  */
-abstract class AbstractDbEntity implements \Serializable
+abstract class AbstractDbEntity implements \Serializable, \JsonSerializable
 {
     /**
      * The database table name (meant to be overridden).
@@ -200,7 +200,7 @@ abstract class AbstractDbEntity implements \Serializable
         // A default value is set
         if (array_key_exists('default', static::$dbProperties[$propertyName])) {
             $defaultValue = static::$dbProperties[$propertyName]['default'];
-        // No default value set, use default for type
+            // No default value set, use default for type
         } else {
             $defaultValue = self::$typeDefaults[static::$dbProperties[$propertyName]['type']];
         }
@@ -350,14 +350,14 @@ abstract class AbstractDbEntity implements \Serializable
             throw new \InvalidArgumentException("No database entity property[{$property}] exists");
         }
 
-         // Don't set type if value is null and allowed (allowed currently indicated by default => null)
+        // Don't set type if value is null and allowed (allowed currently indicated by default => null)
         $nullIsAllowed = (array_key_exists('default', static::$dbProperties[$property])
             && static::$dbProperties[$property]['default'] === null);
         if (!($value === null && $nullIsAllowed)) {
             $type = static::$dbProperties[$property]['type'];
             // Set null when empty and default is null
             if ($value === '' && $nullIsAllowed) {
-                 $value = null;
+                $value = null;
             } elseif ($type === 'dateTime') {
                 if (!($value instanceof \DateTimeInterface)) {
                     $value = $this->createDateTimeDbValue($value);
@@ -569,7 +569,7 @@ abstract class AbstractDbEntity implements \Serializable
                     $this->setDbValue($propertyName, $value, false);
                 }
             }
-        // If there are more row data than properties, use properties as starting point
+            // If there are more row data than properties, use properties as starting point
         } else {
             foreach (array_keys(static::$dbProperties) as $propertyName) {
                 $fieldName = static::getDbFieldName($propertyName);
@@ -889,5 +889,21 @@ abstract class AbstractDbEntity implements \Serializable
     {
         $dataToMerge = $otherEntity->getModifiedDbData();
         $this->setDbData($dataToMerge);
+    }
+
+    /**
+     * Serialize db properties when converting object to json
+     *
+     * @return array
+     */
+    public function jsonSerialize()
+    {
+        $object = get_called_class();
+        $properties = [];
+        foreach ($object::$dbProperties as $dbProperty => $config) {
+            $properties[$dbProperty] =$this->getDbValue($dbProperty);
+        }
+
+        return $properties;
     }
 }
